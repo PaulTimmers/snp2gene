@@ -139,8 +139,8 @@ find_gene() {
 	| awk -v OFS="\t" -v snp=$snp -v chr=$chr -v pos=$pos -v window=$window -v cyto=$cyto '
 	function abs(v) {return v < 0 ? -v : v} 
 	function dist(v,a,b) { if(a<=v && b>=v) {return 0} else {return abs(a-v) < abs(b-v) ? a-v : b-v}} 
-	gene[$1] == 0 {print dist(pos,$2,$3),$1; gene[$1]++}' \
-	| sort -k1Vd,1 \
+	gene[$1] == 0 {print dist(pos,$2,$3),$1,dist($2,$3); gene[$1]++}' \
+	| sort -k1Vd,1 -k3n,3 | cut -f1-2 \
 	| awk -v snp=$snp -v chr=$chr -v pos=$pos -v window=$window -v cyto=$cyto \
 	'{distance[NR]=$1; gene[NR]=$2} 
 	END{printf "%s\t%i\t%i\t%i\t%i\t",snp,chr,pos,NR,window; for (i=1; i<=3; i++) { if(i <= NR){printf "%s\t%i\t",gene[i],distance[i]} else {printf "%s\t%s\t","<NA>","NA"}} {print cyto}}'
