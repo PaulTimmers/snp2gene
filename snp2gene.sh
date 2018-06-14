@@ -112,7 +112,7 @@ print_help() {
     		echo " "                   
     		echo "options:"
     		echo "-h  --help [option]           show brief help, or detailed help for specific option"
-    		echo "-f  --file (filename)         read multiple sumstats paths from single file"
+    		echo "-f  --file (filename)         read multiple SNP names from single file"
     		echo "-w  --window (250000)         number of base pairs flanking SNP checked for genes"
     		echo "-e  --export (filename)       export results to a file with the name of your choice"
     		echo "-v  --verbose                 output more info, such as version, arguments, and progress"
@@ -175,9 +175,16 @@ while test $# -gt 0; do
 
                 +(-)w|+(-)window)
 						shift
+						
+						if `echo $1 | grep -iqE "[ac-jlno-z]"`; then
+							echo "ERROR: invalid window size '$1'"
+                            exit 1
+						fi
+
 						window=`echo $1 | sed 's/[^0-9\.]*//g'`
-						echo $1 | grep -qi "kb" && window=$(bc -l <<< "$window * 1000") 
-						echo $1 | grep -qi "mb" && window=$(bc -l <<< "${window} * 1000000")
+						echo $1 | grep -qiE "k[b]?" && window=$(bc -l <<< "$window * 1000") 
+						echo $1 | grep -qiE "m[b]?" && window=$(bc -l <<< "${window} * 1000000")
+
 						shift
 						;;
 
@@ -201,7 +208,11 @@ while test $# -gt 0; do
                         shift
                         if [ $# -gt 0 ] && [ ${1:0:1} != "-" ]; then
                         	
-                        	
+                        	if [[ ! -f $1 ]]; then
+                        		echo "ERROR: file '$1' does not exist"
+                        		exit 1
+                        	fi
+
                         	cat=cat
                         	file $1 | grep -q "gzip" && cat=zcat 
 
@@ -257,6 +268,12 @@ n_snps=$(timeout 10s bash <<EOT
 wc -l < $snp_list
 EOT
 )
+
+if [[ $n_snps -eq 0 ]]; then
+	echo "ERROR: no SNPs specified"
+	exit 1
+fi
+
 
 if [[ $n_snps -le 10000 ]]; then
 	sort -u ${snp_list} > ${snp_list}.t && mv ${snp_list}.t ${snp_list}
