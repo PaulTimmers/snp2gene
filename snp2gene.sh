@@ -178,6 +178,7 @@ while test $# -gt 0; do
 						window=`echo $1 | sed 's/[^0-9\.]*//g'`
 						echo $1 | grep -qi "kb" && window=$(bc -l <<< "$window * 1000") 
 						echo $1 | grep -qi "mb" && window=$(bc -l <<< "${window} * 1000000")
+						shift
 						;;
 
                 +(-)e|+(-)export)
