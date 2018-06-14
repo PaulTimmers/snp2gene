@@ -53,7 +53,7 @@ print_help() {
 			echo "cat 'snp_list.txt'"
 			echo " > rs6857"
 			echo " > rs7976168"
-			echo " > rs3764814"
+			echo " > 3:52742346_TGA_T"
     		echo " "
     		echo "$script -f snp_list.txt rs429358"
     		echo " "
@@ -72,7 +72,7 @@ print_help() {
     		echo "You can also attach Kb and Mb (without spaces) for 1,000 and 100,000 bases, respectively"
     		echo "For example:"
     		echo ""
-			echo "$script -w 0.5Mb rs3764814"
+			echo "$script -w 0.5Mb rs3764814 3:52742346_TGA_T"
     		echo " "
     		;;
 
@@ -105,7 +105,8 @@ print_help() {
 		*)
     		echo "This  script  will  search  around  each  specified  SNP  for  nearby  genes."
     		echo "The top 3 closest genes are reported by name and distance in basepairs, where"
-    		echo "negative  distance implies upstream and positive distance implies downstream."
+    		echo "negative  distance implies upstream of coding sequence and positive  distance"
+    		echo "implies downstream of coding sequence."
     		echo " "
     		echo "usage:"
     		echo "$script [options] [snp1] [snp2] ..."
@@ -281,7 +282,14 @@ else
 	n_snps=`echo "${n_snps}+"`
 fi
 
-snps=`awk '$1 ~ /rs/ {printf "\"%s\",",$1}' $snp_list | sed 's/,$//'`
+awk '$1 ~ /rs/ {print > FILENAME".rsid"; next} {print > FILENAME".other"}' $snp_list
+
+rsids=`awk '{printf "\"%s\",",$1}' ${snp_list}.rsid | sed 's/,$//'`
+
+if [[ -f ${snp_list}.other ]]; then
+	sed 's/chr//I' ${snp_list}.other | awk -v list=${snp_list}.other -F":|_" '{getline f < list} {printf "%s\t%i\t%i\n",f,$1,$2}' > ${snp_list}.otherpos
+fi
+
 
 
 
@@ -320,12 +328,17 @@ fi
 
 /usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
 "CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
-SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($snps)" > ${snp_list}.snppos
+SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($rsids)" > ${snp_list}.snppos
 
 if [[ $verbose -gt 0 ]]; then
 	echo -e "done."
 	echo -e "Finding closest genes..."
 fi
+
+if [[ -f ${snp_list}.otherpos ]]; then
+	awk '$2 > 0 && $3 > 0' ${snp_list}.otherpos >> ${snp_list}.snppos
+fi
+
 
 if [[ $verbose -gt 0 ]]; then
 	echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" > ${snp_list}.genepos
