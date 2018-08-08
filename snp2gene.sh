@@ -22,6 +22,7 @@ cytobase=${script_dir}/cytobands.db
 window=250000
 export=""
 verbose=0
+summarise=0
 
 # Set error trap
 
@@ -76,6 +77,21 @@ print_help() {
     		echo " "
     		;;
 
+		*(-)s|*(-)summar*)
+			echo " "
+			echo "Showing help for --summary"
+			echo " "
+    		echo "usage:"
+    		echo "$script -s ..."
+    		echo " "
+    		echo "For each SNP, summarise the results of the search. Only a single name will be reported per SNP"
+    		echo "If multiple gene names are available, these will be combined by placing the most upstream gene"
+			echo "name first, followed by a slash, followed by the name of the most downstream gene"
+			echo " "
+			echo "NOTE: Pseudogenes and miRNAs are not included in compound gene names to keep names shorter"
+    		echo " "
+    		;;
+
 		*(-)e|*(-)export)
 			echo " "
 			echo "Showing help for --export"
@@ -116,6 +132,7 @@ print_help() {
     		echo "-f  --file (filename)         read multiple SNP names from single file"
     		echo "-w  --window (250000)         number of base pairs flanking SNP checked for genes"
     		echo "-e  --export (filename)       export results to a file with the name of your choice"
+    		echo "-s  --summary                 summarise results into a single name per SNP"
     		echo "-v  --verbose                 output more info, such as version, arguments, and progress"
     		echo " "
     		;;
@@ -143,7 +160,7 @@ find_gene() {
 	| sort -k1Vd,1 -k3n,3 | cut -f1-2 \
 	| awk -v snp=$snp -v chr=$chr -v pos=$pos -v window=$window -v cyto=$cyto \
 	'{distance[NR]=$1; gene[NR]=$2} 
-	END{printf "%s\t%i\t%i\t%i\t%i\t",snp,chr,pos,NR,window; for (i=1; i<=3; i++) { if(i <= NR){printf "%s\t%i\t",gene[i],distance[i]} else {printf "%s\t%s\t","<NA>","NA"}} {print cyto}}'
+	END{printf "\"%s\"\t%i\t%i\t%i\t%i\t",snp,chr,pos,NR,window; for (i=1; i<=3; i++) { if(i <= NR){printf "\"%s\"\t%i\t",gene[i],distance[i]} else {printf "%s\t%s\t","NA","NA"}} {printf "\"%s\"\n",cyto}}'
 	
 	
 
@@ -198,6 +215,11 @@ while test $# -gt 0; do
                             exit 1
                         fi
                         shift
+						;;
+
+				+(-)s|+(-)summar*)
+						shift
+						summarise=1
 						;;
 
                 +(-)v|+(-)verbose)
@@ -277,7 +299,7 @@ fi
 
 
 if [[ $n_snps -le 10000 ]]; then
-	sort -u ${snp_list} > ${snp_list}.t && mv ${snp_list}.t ${snp_list}
+	awk 'snp[$0] == 0 {snp[$0]++; print}' ${snp_list} > ${snp_list}.t && mv ${snp_list}.t ${snp_list}
 else
 	n_snps=`echo "${n_snps}+"`
 fi
@@ -323,7 +345,7 @@ fi
 #----
 
 if [[ $verbose -gt 0 ]]; then
-	echo -en "Finding chromosome and base pair positions..."
+	echo -en "Finding chromosome and base pair positions... "
 fi
 
 /usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
@@ -332,7 +354,7 @@ SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($rsids)" > ${snp_list}.snppo
 
 if [[ $verbose -gt 0 ]]; then
 	echo -e "done."
-	echo -e "Finding closest genes..."
+	echo -e "Finding closest genes... "
 fi
 
 if [[ -f ${snp_list}.otherpos ]]; then
@@ -343,17 +365,38 @@ fi
 if [[ $verbose -gt 0 ]]; then
 	echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" > ${snp_list}.genepos
 	cat ${snp_list}.snppos | parallel --bar --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase >> ${snp_list}.genepos
-	(cat ${snp_list}.genepos && grep -vFf <(cut -f1 ${snp_list}.genepos) $snp_list | awk -v OFS="\t" '{print $1,"NA","NA","NA","NA","<NA>","NA","<NA>","NA","<NA>","NA","<NA>"}' )| column -t
+	
+
+	if [[ $summarise -gt 0 ]]; then
+		echo -en "Summarising results... "
+		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
+		echo -e "done.\n"
+	fi
+
+	(awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}) | column -t
+
 else
-	echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" | tee ${snp_list}.genepos
-	cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase | tee -a ${snp_list}.genepos
-	grep -vFf <(cut -f1 ${snp_list}.genepos) $snp_list | awk -v OFS="\t" '{print $1,"NA","NA","NA","NA","<NA>","NA","<NA>","NA","<NA>","NA","<NA>"}'
+	if [[ $summarise -gt 0 ]]; then
+		echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" > ${snp_list}.genepos
+		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase >> ${snp_list}.genepos
+	
+	
+		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
+		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+
+	else
+
+		echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" | tee ${snp_list}.genepos
+		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase | sed 's/"//g' | tee -a ${snp_list}.genepos
+		awk -v OFS="\t" 'ARGIND == 1 {rsid[$1]=$0; next} rsid[$1] == 0 {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+	fi
+
+	
 fi
 
 
-
 if [[ ! -z $export ]]; then
-	mv ${snp_list}.genepos $export
+	cat ${snp_list}.genepos > $export
 fi
 
 rm ${snp_list}*
