@@ -84,11 +84,11 @@ print_help() {
     		echo "usage:"
     		echo "$script -s ..."
     		echo " "
-    		echo "For each SNP, summarise the results of the search. Only a single name will be reported per SNP"
-    		echo "If multiple gene names are available, these will be combined by placing the most upstream gene"
-			echo "name first, followed by a slash, followed by the name of the most downstream gene"
+    		echo "For each SNP, summarise the results of the search. Only a single name will be reported per SNP."
+    		echo "If multiple gene names are available, a compound is created from the closest upstream gene name"
+			echo "and the closest downstream gene name (e.g. CELSR2/PSRC1)"
 			echo " "
-			echo "NOTE: Pseudogenes and miRNAs are not included in compound gene names to keep names shorter"
+			echo "NOTE: Pseudogenes and RNAs are not included in compound gene names to keep names short"
     		echo " "
     		;;
 
@@ -149,7 +149,7 @@ find_gene() {
 	cytobase=$6
 	min=`echo "$pos - $window" | bc`
 	max=`echo "$pos + $window" | bc`
-	cyto=`/usr/local/share/anaconda/bin/sqlite3 -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE chr=$chr AND start <= $pos AND end >= $pos"`
+	cyto=`/usr/local/share/anaconda/bin/sqlite3 -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE chr=$chr AND start <= $pos AND end >= $pos LIMIT 1"`
 
 	/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
 	"SELECT DISTINCT geneName,cdsStart,cdsEnd FROM refFlat WHERE chrom=\"chr$chr\" AND cdsEnd > $min AND cdsStart < $max" \
@@ -195,8 +195,13 @@ while test $# -gt 0; do
 						shift
 						
 						if `echo $1 | grep -iqE "[ac-jlno-z]"`; then
-							echo "ERROR: invalid window size '$1'"
+							echo "$script: invalid window size '$1'"
                             exit 1
+						fi
+
+						if [[ -z $1 ]]; then
+							echo "$script: no window size specified"
+							exit 1
 						fi
 
 						window=`echo $1 | sed 's/[^0-9\.]*//g'`
@@ -211,7 +216,7 @@ while test $# -gt 0; do
 						if [ $# -gt 0 ] && [ ${1:0:1} != "-" ]; then
 							export=$1
 						else
-                            echo "ERROR: no output filename specified"
+                            echo "$script: no output filename specified"
                             exit 1
                         fi
                         shift
@@ -232,7 +237,7 @@ while test $# -gt 0; do
                         if [ $# -gt 0 ] && [ ${1:0:1} != "-" ]; then
                         	
                         	if [[ ! -f $1 ]]; then
-                        		echo "ERROR: file '$1' does not exist"
+                        		echo "$script: '$1': No such file or directory"
                         		exit 1
                         	fi
 
@@ -249,14 +254,14 @@ while test $# -gt 0; do
                         	
                             shift
                         else
-                            echo "ERROR: no file specified"
+                            echo "$script: no file specified"
                             exit 1
                         fi
                         ;;
 
                 *)
 					if [ ${1:0:1} == "-" ]; then
-							echo "ERROR: unrecognised argument '$1'"
+							echo "$script: unrecognised argument '$1'"
                             exit 1
 					fi
 
@@ -287,13 +292,13 @@ done
 
 
 
-n_snps=$(timeout 10s bash <<EOT
+n_snps=$(timeout 5s bash <<EOT
 wc -l < $snp_list
 EOT
 )
 
 if [[ $n_snps -eq 0 ]]; then
-	echo "ERROR: no SNPs specified"
+	echo "$script: no SNPs specified"
 	exit 1
 fi
 
@@ -301,7 +306,7 @@ fi
 if [[ $n_snps -le 10000 ]]; then
 	awk 'snp[$0] == 0 {snp[$0]++; print}' ${snp_list} > ${snp_list}.t && mv ${snp_list}.t ${snp_list}
 else
-	n_snps=`echo "${n_snps}+"`
+	n_snps=`echo "${n_snps}"`
 fi
 
 awk '$1 ~ /rs/ {print > FILENAME".rsid"; next} {print > FILENAME".other"}' $snp_list
@@ -348,9 +353,20 @@ if [[ $verbose -gt 0 ]]; then
 	echo -en "Finding chromosome and base pair positions... "
 fi
 
-/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
-"CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
-SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($rsids)" > ${snp_list}.snppos
+if [[ $n_snps -le 50 ]]; then
+	/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
+	"CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
+	SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($rsids)" > ${snp_list}.snppos
+else
+(/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database <<EOF
+.load '$script_dir/csv'
+CREATE VIRTUAL TABLE temp.t1 USING csv(filename='$snp_list');
+CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
+SELECT snp,chr,pos FROM snp_pos_trans p INNER JOIN t1 t ON (p.snp = t.c0) 
+EOF
+) > ${snp_list}.snppos
+fi
+
 
 if [[ $verbose -gt 0 ]]; then
 	echo -e "done."
