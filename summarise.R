@@ -8,7 +8,7 @@ library(data.table)
 args <- commandArgs(T)
 
 genes <- fread(args[1])
-snps <- fread(args[2], header=F, col.names="rsid")
+snps <- fread(args[2], header=F, col.names="rsid", sep="\t")
 a <- genes[snps, on="rsid"]
 
 #----

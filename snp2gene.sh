@@ -17,11 +17,18 @@ shopt -s extglob
 # Set default parameters
 
 snp_list=`mktemp`
-database=/opt/working/wilson/app_full_stuff/locuszoom_v1.4/data/database/locuszoom_hg19.db
 
 case `hostname` in
+	muckleflugga)
+	database=/opt/working/wilson/app_full_stuff/locuszoom_v1.4/data/database/locuszoom_hg19.db
+	sqlite3=/usr/local/share/anaconda/bin/sqlite3	
+	;;
+
 	*ecdf.ed.ac.uk)
 	database=/exports/igmm/eddie/wilson-lab/apps_by_us_full_stuff/locuszoom_v1.4/data/database/locuszoom_hg19.db
+	. /etc/profile.d/modules.sh
+	which R &> /dev/null || module load R/3.3.2
+	sqlite3=/usr/bin/sqlite3
 	;;
 esac
 
@@ -154,11 +161,12 @@ find_gene() {
 	window=$4
 	database=$5
 	cytobase=$6
+	sqlite3=$7
 	min=`echo "$pos - $window" | bc`
 	max=`echo "$pos + $window" | bc`
-	cyto=`/usr/local/share/anaconda/bin/sqlite3 -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE chr=$chr AND start <= $pos AND end >= $pos LIMIT 1"`
+	cyto=`${sqlite3} -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE chr=$chr AND start <= $pos AND end >= $pos LIMIT 1"`
 
-	/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
+	${sqlite3} -separator "	" $database \
 	"SELECT DISTINCT geneName,cdsStart,cdsEnd FROM refFlat WHERE chrom=\"chr$chr\" AND cdsEnd > $min AND cdsStart < $max" \
 	| awk -v OFS="\t" -v snp=$snp -v chr=$chr -v pos=$pos -v window=$window -v cyto=$cyto '
 	function abs(v) {return v < 0 ? -v : v} 
@@ -361,11 +369,11 @@ if [[ $verbose -gt 0 ]]; then
 fi
 
 if [[ $n_snps -le 50 ]]; then
-	/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database \
+	${sqlite3} -separator "	" $database \
 	"CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
 	SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($rsids)" > ${snp_list}.snppos
 else
-(/usr/local/share/anaconda/bin/sqlite3 -separator "	" $database <<EOF
+(${sqlite3} -separator "	" $database <<EOF
 .load '$script_dir/csv'
 CREATE VIRTUAL TABLE temp.t1 USING csv(filename='$snp_list');
 CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
@@ -387,7 +395,7 @@ fi
 
 if [[ $verbose -gt 0 ]]; then
 	echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" > ${snp_list}.genepos
-	cat ${snp_list}.snppos | parallel --bar --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase >> ${snp_list}.genepos
+	cat ${snp_list}.snppos | parallel --bar --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase $sqlite3 >> ${snp_list}.genepos
 	
 
 	if [[ $summarise -gt 0 ]]; then
@@ -402,7 +410,7 @@ if [[ $verbose -gt 0 ]]; then
 else
 	if [[ $summarise -gt 0 ]]; then
 		echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" > ${snp_list}.genepos
-		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase >> ${snp_list}.genepos
+		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase $sqlite3 >> ${snp_list}.genepos
 	
 	
 		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
@@ -411,7 +419,7 @@ else
 	else
 
 		echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" | tee ${snp_list}.genepos
-		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase | sed 's/"//g' | tee -a ${snp_list}.genepos
+		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase $sqlite3 | sed 's/"//g' | tee -a ${snp_list}.genepos
 		awk -v OFS="\t" 'ARGIND == 1 {rsid[$1]=$0; next} rsid[$1] == 0 {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
 	fi
 
