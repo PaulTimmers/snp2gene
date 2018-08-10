@@ -257,7 +257,7 @@ while test $# -gt 0; do
                         	fi
 
                         	cat=cat
-                        	file $1 | grep -q "gzip" && cat=zcat 
+                        	file `readlink -f $1` | grep -q "gzip" && cat=zcat 
 
                         	eval $( $cat $1 | head -1 | awk '{for(i = 1; i <= NF; i++) if(tolower($i)~/rs[^0123456789]|marker|snp|id$|name/) {print "rsid_col="i; break }}' )
                         	
@@ -282,7 +282,7 @@ while test $# -gt 0; do
 
 						if [[ -f $1 ]]; then
 							cat=cat
-                        	file $1 | grep -q "gzip" && cat=zcat 
+                        	file `readlink -f $1` | grep -q "gzip" && cat=zcat 
 
                         	eval $( $cat $1 | head -1 | awk '{for(i = 1; i <= NF; i++) if(tolower($i)~/rs[^0123456789]|marker|snp|id$|name/) {print "rsid_col="i; break }}' )
                         	
