@@ -18,6 +18,13 @@ shopt -s extglob
 
 snp_list=`mktemp`
 database=/opt/working/wilson/app_full_stuff/locuszoom_v1.4/data/database/locuszoom_hg19.db
+
+case `hostname` in
+	*ecdf.ed.ac.uk)
+	database=/exports/igmm/eddie/wilson-lab/apps_by_us_full_stuff/locuszoom_v1.4/data/database/locuszoom_hg19.db
+	;;
+esac
+
 cytobase=${script_dir}/cytobands.db
 window=250000
 export=""
@@ -84,7 +91,7 @@ print_help() {
     		echo "usage:"
     		echo "$script -s ..."
     		echo " "
-    		echo "For each SNP, summarise the results of the search. Only a single name will be reported per SNP."
+    		echo "For each SNP,  summarise the results of the search into a single name and append to the output."
     		echo "If multiple gene names are available, a compound is created from the closest upstream gene name"
 			echo "and the closest downstream gene name (e.g. CELSR2/PSRC1)"
 			echo " "
@@ -387,9 +394,10 @@ if [[ $verbose -gt 0 ]]; then
 		echo -en "Summarising results... "
 		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
 		echo -e "done.\n"
+		sum="NA"
 	fi
 
-	(awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}) | column -t
+	(awk -v sum=$sum -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA",sum}' ${snp_list}.genepos ${snp_list}) | column -t
 
 else
 	if [[ $summarise -gt 0 ]]; then
@@ -398,7 +406,7 @@ else
 	
 	
 		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
-		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
 
 	else
 

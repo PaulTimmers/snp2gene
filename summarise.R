@@ -40,5 +40,7 @@ answ[,gene:=gsub("/LOC.*$|/MIR|/LINC.*$","",gene)]
 answ[,gene:=gsub("^.*LOC.*/|^.*MIR.*/|^.*LINC.*/","",gene)]
 
 
+genes$summary <- answ[match(genes$rsid,answ$rsid),gene]
+
 # Export
-write.table(answ, args[1], quote=FALSE, sep="\t", row.names=FALSE)
+write.table(genes, args[1], quote=FALSE, sep="\t", row.names=FALSE)
