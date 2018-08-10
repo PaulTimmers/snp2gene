@@ -326,7 +326,11 @@ fi
 
 awk '$1 ~ /rs/ {print > FILENAME".rsid"; next} {print > FILENAME".other"}' $snp_list
 
-rsids=`awk '{printf "\"%s\",",$1}' ${snp_list}.rsid | sed 's/,$//'`
+
+if [[ -f ${snp_list}.rsid ]]; then
+	rsids=`awk '{printf "\"%s\",",$1}' ${snp_list}.rsid | sed 's/,$//'`
+fi
+
 
 if [[ -f ${snp_list}.other ]]; then
 	sed 's/chr//I' ${snp_list}.other | awk -v list=${snp_list}.other -F":|_" '{getline f < list} {printf "%s\t%i\t%i\n",f,$1,$2}' > ${snp_list}.otherpos
