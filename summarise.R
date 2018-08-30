@@ -1,4 +1,4 @@
-#!/usr/bin/Rscrpit
+#!/usr/bin/env R
 
 #----
 # Setup environment
@@ -10,6 +10,14 @@ args <- commandArgs(T)
 genes <- fread(args[1])
 snps <- fread(args[2], header=F, col.names="rsid", sep="\t")
 a <- genes[snps, on="rsid"]
+
+
+#----
+# Adjust small elements
+#----
+
+a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1),c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
+
 
 #----
 # Summarise
