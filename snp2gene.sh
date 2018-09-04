@@ -1,5 +1,3 @@
-#snp2gene.sh
-
 #!/bin/bash
 
 
@@ -10,7 +8,7 @@
 # Set environment variables
 
 script=snp2gene.sh
-script_dir=$(dirname `readlink -f $0`)
+script_dir=$(dirname $(readlink -f $( which $0) ) )
 init_dir=`pwd`
 shopt -s extglob
 
