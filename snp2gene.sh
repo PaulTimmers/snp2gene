@@ -384,6 +384,7 @@ if [[ $verbose -gt 0 ]]; then
 	echo "ARGUMENTS"
 	(echo -e "n_snps:\t$n_snps"
 	echo -e "window:\t$window"
+	echo -e "database:\t`basename $database`"
 	if [[ ! -z $export ]]; then
 		echo -e "export:\t`readlink -f $export`"
 	fi
