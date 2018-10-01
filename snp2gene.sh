@@ -109,10 +109,11 @@ print_help() {
 			echo "Showing help for --build"
 			echo " "
     		echo "usage:"
-    		echo "$script -b [hg19]"
+    		echo "$script -b (hg19) ..."
     		echo " "
-    		echo "Specify which genome build to check for SNP positions. The default is 'hg19' but you can also"
-    		echo "select 'hg38' or 'hg18'."
+    		echo "Specify which genome build to check for SNP and gene positions. The default is 'hg19' but you can also"
+    		echo "select 'hg38' or 'hg18'. All data is contained within the locuszoom database, so please update that if"
+    		echo "you would like to update the genome build."
     		echo " "
     		;;
 
@@ -155,6 +156,7 @@ print_help() {
     		echo "-h  --help [option]           show brief help, or detailed help for specific option"
     		echo "-f  --file (filename)         read multiple SNP names from single file"
     		echo "-w  --window (250000)         number of base pairs flanking SNP checked for genes"
+    		echo "-b  --build (hgXX)            select genome build to use for SNP and gene positions"
     		echo "-e  --export (filename)       export results to a file with the name of your choice"
     		echo "-s  --summary                 summarise results into a single name per SNP"
     		echo "-v  --verbose                 output more info, such as version, arguments, and progress"
