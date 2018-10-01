@@ -104,6 +104,18 @@ print_help() {
     		echo " "
     		;;
 
+		*(-)b|*(-)build)
+			echo " "
+			echo "Showing help for --build"
+			echo " "
+    		echo "usage:"
+    		echo "$script -b [hg19]"
+    		echo " "
+    		echo "Specify which genome build to check for SNP positions. The default is 'hg19' but you can also"
+    		echo "select 'hg38' or 'hg18'."
+    		echo " "
+    		;;
+
 		*(-)e|*(-)export)
 			echo " "
 			echo "Showing help for --export"
@@ -222,6 +234,25 @@ while test $# -gt 0; do
 						echo $1 | grep -qiE "m[b]?" && window=$(bc -l <<< "${window} * 1000000")
 
 						shift
+						;;
+
+                +(-)b|+(-)build)
+						shift
+						if [ $# -gt 0 ] && [ ${1:0:1} != "-" ]; then
+							database=`echo $database | sed "s/hg19/$1/"`
+							if [[ ! -f $database ]]; then
+								echo -en "$script: invalid build specified.\n  Please choose from: "
+								ls `dirname $database`/locuszoom*.db | sed 's=.*locuszoom_==g; s/.db//g' | awk -v ORS=" " '1'
+								echo ""
+								exit 1
+							fi
+						else
+                            echo -en "$script: invalid build specified.\n  Please choose from: "
+							ls `dirname $database`/locuszoom*.db | sed 's=.*locuszoom_==g; s/.db//g' | awk -v ORS=" " '1'
+							echo ""
+							exit 1
+                        fi
+                        shift
 						;;
 
                 +(-)e|+(-)export)
