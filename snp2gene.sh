@@ -441,7 +441,8 @@ if [[ $verbose -gt 0 ]]; then
 		sum="NA"
 	fi
 
-	(awk -v sum=$sum -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA",sum}' ${snp_list}.genepos ${snp_list}) | column -t
+	(awk -v sum=$sum -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA",sum}' ${snp_list}.genepos ${snp_list}) | tee ${snp_list}1.genepos | column -t
+	mv ${snp_list}1.genepos ${snp_list}.genepos
 
 else
 	if [[ $summarise -gt 0 ]]; then
@@ -450,13 +451,14 @@ else
 	
 	
 		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
-		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list} | tee ${snp_list}1.genepos
+		mv ${snp_list}1.genepos ${snp_list}.genepos
 
 	else
 
 		echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" | tee ${snp_list}.genepos
 		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase $sqlite3 | sed 's/"//g' | tee -a ${snp_list}.genepos
-		awk -v OFS="\t" 'ARGIND == 1 {rsid[$1]=$0; next} rsid[$1] == 0 {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+		awk -v OFS="\t" 'ARGIND == 1 {rsid[$1]=$0; next} rsid[$1] == 0 {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list} | tee -a ${snp_list}.genepos
 	fi
 
 	
