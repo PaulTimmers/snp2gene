@@ -16,8 +16,11 @@ a <- genes[snps, on="rsid"]
 # Adjust small elements
 #----
 
-a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1),c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
+# Remove small elements from list, as long as not all genes nearby are small elements
+a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1) & !(grepl("LOC|MIR|LINC",gene2) & grepl("LOC|MIR|LINC",gene2)) ,c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
 
+# Repeat in case second element is also small
+a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1) & !(grepl("LOC|MIR|LINC",gene2) & grepl("LOC|MIR|LINC",gene2)) ,c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
 
 #----
 # Summarise
@@ -34,7 +37,7 @@ a <- a[!rsid %in% answ$rsid,]
 
 
 # SNPs with only one gene name and SNPs inside genes
-answ <- rbind(answ, a[is.na(gene2) | dist1==0 | sign(dist1) == sign(dist2),.(rsid,gene=gene1)])
+answ <- rbind(answ, a[is.na(gene2) | (dist1==0 & dist2 !=0) | sign(dist1) == sign(dist2) & sign(dist2) != 0 ,.(rsid,gene=gene1)])
 a <- a[!rsid %in% answ$rsid,]
 
 
@@ -44,7 +47,7 @@ a <- a[!rsid %in% answ$rsid,]
 
 
 # Shorten
-answ[,gene:=gsub("/LOC.*$|/MIR|/LINC.*$","",gene)]
+answ[,gene:=gsub("/LOC.*$|/MIR.*$|/LINC.*$","",gene)]
 answ[,gene:=gsub("^.*LOC.*/|^.*MIR.*/|^.*LINC.*/","",gene)]
 
 

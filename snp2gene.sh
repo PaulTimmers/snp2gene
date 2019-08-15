@@ -370,7 +370,7 @@ if [[ $verbose -gt 0 ]]; then
 	echo -en "Finding chromosome and base pair positions... "
 fi
 
-if [[ $n_snps -le 50 ]]; then
+if [[ $n_snps -le 10000 ]]; then
 	${sqlite3} -separator "	" $database \
 	"CREATE TEMP VIEW snp_pos_trans AS SELECT rs_orig as snp,chr,pos FROM snp_pos p INNER JOIN refsnp_trans t ON (t.rs_current = p.snp); 
 	SELECT snp,chr,pos FROM snp_pos_trans WHERE snp IN ($rsids)" > ${snp_list}.snppos
