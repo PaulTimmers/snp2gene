@@ -104,6 +104,19 @@ print_help() {
     		echo " "
     		;;
 
+		*(-)b|*(-)build)
+			echo " "
+			echo "Showing help for --build"
+			echo " "
+    		echo "usage:"
+    		echo "$script -b (hg19) ..."
+    		echo " "
+    		echo "Specify which genome build to check for SNP and gene positions. The default is 'hg19' but you can also"
+    		echo "select 'hg38' or 'hg18'. All data is contained within the locuszoom database, so please update that if"
+    		echo "you would like to update the genome build."
+    		echo " "
+    		;;
+
 		*(-)e|*(-)export)
 			echo " "
 			echo "Showing help for --export"
@@ -143,6 +156,7 @@ print_help() {
     		echo "-h  --help [option]           show brief help, or detailed help for specific option"
     		echo "-f  --file (filename)         read multiple SNP names from single file"
     		echo "-w  --window (250000)         number of base pairs flanking SNP checked for genes"
+    		echo "-b  --build (hgXX)            select genome build to use for SNP and gene positions"
     		echo "-e  --export (filename)       export results to a file with the name of your choice"
     		echo "-s  --summary                 summarise results into a single name per SNP"
     		echo "-v  --verbose                 output more info, such as version, arguments, and progress"
@@ -222,6 +236,25 @@ while test $# -gt 0; do
 						echo $1 | grep -qiE "m[b]?" && window=$(bc -l <<< "${window} * 1000000")
 
 						shift
+						;;
+
+                +(-)b|+(-)build)
+						shift
+						if [ $# -gt 0 ] && [ ${1:0:1} != "-" ]; then
+							database=`echo $database | sed "s/hg19/$1/"`
+							if [[ ! -f $database ]]; then
+								echo -en "$script: invalid build specified.\n  Please choose from: "
+								ls `dirname $database`/locuszoom*.db | sed 's=.*locuszoom_==g; s/.db//g' | awk -v ORS=" " '1'
+								echo ""
+								exit 1
+							fi
+						else
+                            echo -en "$script: invalid build specified.\n  Please choose from: "
+							ls `dirname $database`/locuszoom*.db | sed 's=.*locuszoom_==g; s/.db//g' | awk -v ORS=" " '1'
+							echo ""
+							exit 1
+                        fi
+                        shift
 						;;
 
                 +(-)e|+(-)export)
@@ -351,6 +384,7 @@ if [[ $verbose -gt 0 ]]; then
 	echo "ARGUMENTS"
 	(echo -e "n_snps:\t$n_snps"
 	echo -e "window:\t$window"
+	echo -e "database:\t`basename $database`"
 	if [[ ! -z $export ]]; then
 		echo -e "export:\t`readlink -f $export`"
 	fi
@@ -407,7 +441,8 @@ if [[ $verbose -gt 0 ]]; then
 		sum="NA"
 	fi
 
-	(awk -v sum=$sum -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA",sum}' ${snp_list}.genepos ${snp_list}) | column -t
+	(awk -v sum=$sum -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA",sum}' ${snp_list}.genepos ${snp_list}) | tee ${snp_list}1.genepos | column -t
+	mv ${snp_list}1.genepos ${snp_list}.genepos
 
 else
 	if [[ $summarise -gt 0 ]]; then
@@ -416,13 +451,14 @@ else
 	
 	
 		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
-		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list} | tee ${snp_list}1.genepos
+		mv ${snp_list}1.genepos ${snp_list}.genepos
 
 	else
 
 		echo -e "rsid\tchr\tpos\tn_genes\twindow\tgene1\tdist1\tgene2\tdist2\tgene3\tdist3\tcyto" | tee ${snp_list}.genepos
 		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase $sqlite3 | sed 's/"//g' | tee -a ${snp_list}.genepos
-		awk -v OFS="\t" 'ARGIND == 1 {rsid[$1]=$0; next} rsid[$1] == 0 {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list}
+		awk -v OFS="\t" 'ARGIND == 1 {rsid[$1]=$0; next} rsid[$1] == 0 {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list} | tee -a ${snp_list}.genepos
 	fi
 
 	
