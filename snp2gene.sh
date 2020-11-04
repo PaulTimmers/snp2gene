@@ -89,7 +89,7 @@ print_help() {
     		echo " "
     		;;
 
-		*(-)s|*(-)summar*)
+		*(-)s*|*(-)summar*)
 			echo " "
 			echo "Showing help for --summary"
 			echo " "
@@ -153,13 +153,14 @@ print_help() {
     		echo "$script [options] [snp1] [snp2] ..."
     		echo " "                   
     		echo "options:"
-    		echo "-h  --help [option]           show brief help, or detailed help for specific option"
-    		echo "-f  --file (filename)         read multiple SNP names from single file"
-    		echo "-w  --window (250000)         number of base pairs flanking SNP checked for genes"
-    		echo "-b  --build (hgXX)            select genome build to use for SNP and gene positions"
-    		echo "-e  --export (filename)       export results to a file with the name of your choice"
-    		echo "-s  --summary                 summarise results into a single name per SNP"
-    		echo "-v  --verbose                 output more info, such as version, arguments, and progress"
+    		echo "-h   --help [option]           show brief help, or detailed help for specific option"
+    		echo "-f   --file (filename)         read multiple SNP names from single file"
+    		echo "-w   --window (250000)         number of base pairs flanking SNP checked for genes"
+    		echo "-b   --build (hgXX)            select genome build to use for SNP and gene positions"
+    		echo "-e   --export (filename)       export results to a file with the name of your choice"
+    		echo "-s   --summary                 summarise results into a single name per SNP"
+		echo "-s2  --summary2                like --summary but shortens overlapping gene names"
+    		echo "-v   --verbose                 output more info, such as version, arguments, and progress"
     		echo " "
     		;;
 	esac
@@ -268,10 +269,15 @@ while test $# -gt 0; do
                         shift
 						;;
 
-				+(-)s|+(-)summar*)
+				+(-)s|+(-)summar*[^2])
 						shift
 						summarise=1
 						;;
+				+(-)s2|+(-)summar*2)
+                                                shift
+                                                summarise=2
+                                                ;;
+
 
                 +(-)v|+(-)verbose)
 						shift
@@ -436,7 +442,7 @@ if [[ $verbose -gt 0 ]]; then
 
 	if [[ $summarise -gt 0 ]]; then
 		echo -en "Summarising results... "
-		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
+		Rscript ${script_dir}/summarise${summarise}.R ${snp_list}.genepos ${snp_list}
 		echo -e "done.\n"
 		sum="NA"
 	fi
@@ -450,7 +456,7 @@ else
 		cat ${snp_list}.snppos | parallel --col-sep="\t" -j 20 --no-notice find_gene {1} {2} {3} $window $database $cytobase $sqlite3 >> ${snp_list}.genepos
 	
 	
-		Rscript ${script_dir}/summarise.R ${snp_list}.genepos ${snp_list}
+		Rscript ${script_dir}/summarise${summarise}.R ${snp_list}.genepos ${snp_list}
 		awk -v OFS="\t" 'NR==1 {print} ARGIND == 1 {gsub(/"/,"",$0); rsid[$1]=$0; next} rsid[$1] > 0 {print rsid[$1]; next} {printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", $1,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA"}' ${snp_list}.genepos ${snp_list} | tee ${snp_list}1.genepos
 		mv ${snp_list}1.genepos ${snp_list}.genepos
 
