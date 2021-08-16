@@ -17,10 +17,10 @@ a <- genes[snps, on="rsid"]
 #----
 
 # Remove small elements from list, as long as not all genes nearby are small elements
-a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1) & !(grepl("LOC|MIR|LINC",gene2) & grepl("LOC|MIR|LINC",gene2)) ,c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
+a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1) & !(grepl("LOC|MIR|LINC",gene2) & grepl("LOC|MIR|LINC",gene3)) ,c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
 
 # Repeat in case second element is also small
-a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1) & !(grepl("LOC|MIR|LINC",gene2) & grepl("LOC|MIR|LINC",gene2)) ,c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
+a[!is.na(gene2) & grepl("LOC|MIR|LINC",gene1) & !(grepl("LOC|MIR|LINC",gene2) & grepl("LOC|MIR|LINC",gene3)) ,c("gene1","dist1","gene2","dist2","gene3","dist3"):=.(gene2,dist2,gene3,dist3,NA,NA)]
 
 #----
 # Summarise
