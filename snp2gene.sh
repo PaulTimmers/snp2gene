@@ -181,8 +181,9 @@ find_gene() {
 
 	cyto=`${sqlite3} -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE build = '$build' AND chr=$chr AND start <= $pos AND end >= $pos LIMIT 1"`
 
+	chrs=({1..22} X Y M MT)
 	${sqlite3} -separator "	" $database \
-	"SELECT DISTINCT geneName,cdsStart,cdsEnd FROM refFlat WHERE chrom=\"chr$chr\" AND cdsEnd > $min AND cdsStart < $max" \
+	"SELECT DISTINCT geneName,cdsStart,cdsEnd FROM refFlat WHERE chrom=\"chr${chrs[$chr-1]}\" AND cdsEnd > $min AND cdsStart < $max" \
 	| awk -v OFS="\t" -v snp=$snp -v chr=$chr -v pos=$pos -v window=$window -v cyto=$cyto '
 	function abs(v) {return v < 0 ? -v : v} 
 	function dist(v,a,b) { if(a<=v && b>=v) {return 0} else {return abs(a-v) < abs(b-v) ? a-v : b-v}} 
