@@ -177,7 +177,9 @@ find_gene() {
 	sqlite3=$7
 	min=`echo "$pos - $window" | bc`
 	max=`echo "$pos + $window" | bc`
-	cyto=`${sqlite3} -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE chr=$chr AND start <= $pos AND end >= $pos LIMIT 1"`
+	build=`echo $database | grep -q "hg38" && echo hg38 || echo hg19`
+
+	cyto=`${sqlite3} -separator "	" $cytobase "SELECT cyto FROM cyto_pos WHERE build = '$build' AND chr=$chr AND start <= $pos AND end >= $pos LIMIT 1"`
 
 	${sqlite3} -separator "	" $database \
 	"SELECT DISTINCT geneName,cdsStart,cdsEnd FROM refFlat WHERE chrom=\"chr$chr\" AND cdsEnd > $min AND cdsStart < $max" \
